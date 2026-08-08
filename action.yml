@@ -1,0 +1,61 @@
+name: 'Send mail action'
+description: 'GitHub Composite Action to send text or HTML emails via SMTP using curl'
+author: 'jiacai'
+branding:
+  icon: 'mail'
+  color: 'blue'
+
+inputs:
+  smtp_url:
+    description: 'SMTP URL (e.g. smtps://smtp.gmail.com:465 or smtp://smtp.example.com:587)'
+    required: true
+  username:
+    description: 'SMTP Username'
+    required: true
+  password:
+    description: 'SMTP Password'
+    required: true
+  from:
+    description: 'Sender email (e.g., "user@example.com" or "Sender Name <user@example.com>")'
+    required: true
+  to:
+    description: 'Recipient email address(es), comma-separated'
+    required: true
+  subject:
+    description: 'Email subject line'
+    required: true
+  body:
+    description: 'Plain text body string'
+    required: false
+    default: ''
+  html_body:
+    description: 'HTML body string'
+    required: false
+    default: ''
+  body_file:
+    description: 'Path to plain text body file'
+    required: false
+    default: ''
+  html_body_file:
+    description: 'Path to HTML body file'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run send-mail script
+      shell: bash
+      env:
+        MAIL_SMTP_URL: ${{ inputs.smtp_url }}
+        MAIL_USERNAME: ${{ inputs.username }}
+        MAIL_PASSWORD: ${{ inputs.password }}
+        MAIL_FROM: ${{ inputs.from }}
+        MAIL_TO: ${{ inputs.to }}
+        MAIL_SUBJECT: ${{ inputs.subject }}
+        MAIL_TEXT_BODY: ${{ inputs.body }}
+        MAIL_HTML_BODY: ${{ inputs.html_body }}
+        MAIL_TEXT_BODY_FILE: ${{ inputs.body_file }}
+        MAIL_HTML_BODY_FILE: ${{ inputs.html_body_file }}
+      run: |
+        "${{ github.action_path }}/send-mail.sh"
