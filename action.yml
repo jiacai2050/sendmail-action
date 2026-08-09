@@ -1,4 +1,4 @@
-name: 'Send mail action'
+name: 'Send Mail Action'
 description: 'GitHub Composite Action to send text or HTML emails via SMTP using curl'
 author: 'jiacai'
 branding:
@@ -40,6 +40,10 @@ inputs:
     description: 'Path to HTML body file'
     required: false
     default: ''
+  curl_opts:
+    description: 'Additional custom command line options to pass directly to curl (e.g. "--insecure -v")'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -57,5 +61,6 @@ runs:
         MAIL_HTML_BODY: ${{ inputs.html_body }}
         MAIL_TEXT_BODY_FILE: ${{ inputs.body_file }}
         MAIL_HTML_BODY_FILE: ${{ inputs.html_body_file }}
+        MAIL_CURL_OPTS: ${{ inputs.curl_opts }}
       run: |
         "${{ github.action_path }}/send-mail.sh"

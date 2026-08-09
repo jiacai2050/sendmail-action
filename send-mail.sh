@@ -15,6 +15,7 @@ TEXT_BODY="${MAIL_TEXT_BODY:-}"
 TEXT_BODY_FILE="${MAIL_TEXT_BODY_FILE:-}"
 HTML_BODY="${MAIL_HTML_BODY:-}"
 HTML_BODY_FILE="${MAIL_HTML_BODY_FILE:-}"
+CURL_OPTS="${MAIL_CURL_OPTS:-}"
 # ==================================================
 
 # Define cleanup function to ensure temporary file is always deleted
@@ -196,16 +197,19 @@ else
     printf "%s" "$HTML_CONTENT" | base64 >> "$MAIL_FILE"
 fi
 
-echo "==> Sending email via curl to $MAIL_TO..."
+echo "==> Sending email via curl..."
 
-# 3. Send via curl and check exit status
+# 3. Send via curl (passing extra CURL_OPTS unquoted for flag expansion)
 set +e
+# shellcheck disable=SC2086
 curl --fail --show-error \
   --url "$SMTP_URL" \
   --user "$USERNAME:$PASSWORD" \
   --mail-from "$ENVELOPE_FROM" \
+  --upload-file "$MAIL_FILE" \
   "${MAIL_RCPT_ARGS[@]}" \
-  --upload-file "$MAIL_FILE"
+  $CURL_OPTS
+
 CURL_EXIT_CODE=$?
 set -e
 
