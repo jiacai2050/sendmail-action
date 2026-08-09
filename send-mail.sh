@@ -54,15 +54,53 @@ extract_email() {
     fi
 }
 
+# Helper function to unconditionally encode a header string per RFC 2047 (=?UTF-8?B?...?=)
+encode_rfc2047() {
+    local input="$1"
+    local b64
+    b64=$(printf "%s" "$input" | base64 | tr -d '\r\n')
+    echo "=?UTF-8?B?${b64}?="
+}
+
 ENVELOPE_FROM=$(extract_email "$MAIL_FROM")
 
-# Parse comma-separated MAIL_TO list into --mail-rcpt argument array for curl
+# Format From header with RFC 2047 encoding for display name if present
+if [[ "$MAIL_FROM" =~ ^(.*)\<([^>]+)\>$ ]]; then
+    DISPLAY_NAME=$(echo "${BASH_REMATCH[1]}" | xargs)
+    CLEAN_ADDR="${BASH_REMATCH[2]}"
+    if [[ -n "$DISPLAY_NAME" ]]; then
+        ENCODED_NAME=$(encode_rfc2047 "$DISPLAY_NAME")
+        MAIL_FROM_HEADER="${ENCODED_NAME} <${CLEAN_ADDR}>"
+    else
+        MAIL_FROM_HEADER="<${CLEAN_ADDR}>"
+    fi
+else
+    MAIL_FROM_HEADER="$MAIL_FROM"
+fi
+
+ENCODED_SUBJECT=$(encode_rfc2047 "$SUBJECT")
+
+# Parse comma-separated MAIL_TO list into --mail-rcpt argument array and formatted MIME To header
 MAIL_RCPT_ARGS=()
+TO_HEADER_PARTS=()
 IFS=',' read -ra ADDR_ARRAY <<< "$MAIL_TO"
 for addr in "${ADDR_ARRAY[@]}"; do
-    clean_addr=$(extract_email "$addr")
+    addr_trimmed=$(echo "$addr" | xargs)
+    clean_addr=$(extract_email "$addr_trimmed")
     if [[ -n "$clean_addr" ]]; then
         MAIL_RCPT_ARGS+=("--mail-rcpt" "$clean_addr")
+
+        if [[ "$addr_trimmed" =~ ^(.*)\<([^>]+)\>$ ]]; then
+            display_name=$(echo "${BASH_REMATCH[1]}" | xargs)
+            if [[ -n "$display_name" ]]; then
+                encoded_name=$(encode_rfc2047 "$display_name")
+                TO_HEADER_PARTS+=("${encoded_name} <${clean_addr}>")
+            else
+                TO_HEADER_PARTS+=("<${clean_addr}>")
+            fi
+        else
+            TO_HEADER_PARTS+=("$clean_addr")
+        fi
     fi
 done
 
@@ -70,6 +108,9 @@ if (( ${#MAIL_RCPT_ARGS[@]} == 0 )); then
     echo "Error: No valid recipient email address found in MAIL_TO." >&2
     exit 1
 fi
+
+# Join recipient parts with commas for the MIME To header
+TO_HEADER_STR=$(IFS=', '; echo "${TO_HEADER_PARTS[*]}")
 
 # Resolve text body content (file priority over raw text string)
 TEXT_CONTENT=""
@@ -109,9 +150,9 @@ BOUNDARY="mail-boundary-$(date +%s%N)"
 
 # 1. Write email headers
 cat <<EOF > "$MAIL_FILE"
-From: $MAIL_FROM
-To: $MAIL_TO
-Subject: $SUBJECT
+From: $MAIL_FROM_HEADER
+To: $TO_HEADER_STR
+Subject: $ENCODED_SUBJECT
 MIME-Version: 1.0
 EOF
 
